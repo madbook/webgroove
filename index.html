@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>WebGroove</title>
+    <link rel="stylesheet" href="main.css">
+    <script src="main.js"></script>
+  </head>
+  <body>
+    <web-groove>
+      <level-terrain
+        level-string="
+          .T..,.....
+          ....,,,,,,
+          .,,,,..T..
+          .,....T^^.
+          ~=~~...T^.
+          .,.~~~~~..
+          .,.....~..
+        "
+      ></level-terrain>
+
+      <game-object>
+        <entity-transform x=0" y="0"></entity-transform>
+        <unit-move-area></unit-move-area>
+      </game-object>
+
+      <game-object id="display" fixed bottom right>
+        <entity-transform x="0" y="0"></entity-transform>
+        <unit-display></unit-display>
+        <terrain-display></terrain-display>
+      </game-object>
+
+      <game-object>  
+        <entity-transform x="1" y="1"></entity-transform>
+        <level-cursor></level-cursor>
+      </game-object>
+
+      <game-object>  
+        <entity-transform x="2" y="2"></entity-transform>
+        <unit-entity player="1"></unit-entity>
+      </game-object>
+
+      <game-object>  
+        <entity-transform x="5" y="3"></entity-transform>
+        <unit-entity player="1"></unit-entity>
+      </game-object>
+
+      <game-object>  
+        <entity-transform x="4" y="4"></entity-transform>
+        <unit-entity player="2"></unit-entity>
+      </game-object>
+    </web-groove>
+  </body>
+</html>

@@ -121,18 +121,33 @@ const CharToTerrainType = {
 };
 
 const TerrainTypeToColor = new Map([
-  [TerrainType.Plain, 'rgb(135, 245, 66)'],
-  [TerrainType.Road, 'rgb(230, 227, 161)'],
-  [TerrainType.Floor, 'rgb(191, 198, 201)'],
-  [TerrainType.Forest, 'rgb(30, 125, 51)'],
-  [TerrainType.Mountain, 'rgb(102, 91, 86)'],
-  [TerrainType.Wall, 'rgb(125, 126, 128)'],
-  [TerrainType.River, 'rgb(119, 184, 237)'],
-  [TerrainType.Beach, 'rgb(252, 252, 204)'],
-  [TerrainType.Sea, 'rgb(35, 167, 204)'],
-  [TerrainType.DeepSea, 'rgb(16, 79, 161)'],
-  [TerrainType.Reef, 'rgb(84, 165, 168)'],
-  [TerrainType.Bridge, 'rgb(181, 123, 72)'],
+  [TerrainType.Plain,     'rgb(135, 245, 66)'],
+  [TerrainType.Road,      'rgb(230, 227, 161)'],
+  [TerrainType.Floor,     'rgb(191, 198, 201)'],
+  [TerrainType.Forest,    'rgb(30, 125, 51)'],
+  [TerrainType.Mountain,  'rgb(102, 91, 86)'],
+  [TerrainType.Wall,      'rgb(125, 126, 128)'],
+  [TerrainType.River,     'rgb(119, 184, 237)'],
+  [TerrainType.Beach,     'rgb(252, 252, 204)'],
+  [TerrainType.Sea,       'rgb(35, 167, 204)'],
+  [TerrainType.DeepSea,   'rgb(16, 79, 161)'],
+  [TerrainType.Reef,      'rgb(84, 165, 168)'],
+  [TerrainType.Bridge,    'rgb(181, 123, 72)'],
+]);
+
+const TerrainTypeToDefenseModifier = new Map([
+  [TerrainType.Plain,     +.1],
+  [TerrainType.Road,        0],
+  [TerrainType.Floor,       0],
+  [TerrainType.Forest,    +.3],
+  [TerrainType.Mountain,  +.4],
+  [TerrainType.Wall,      +.4],
+  [TerrainType.River,     -.2],
+  [TerrainType.Beach,     -.1],
+  [TerrainType.Sea,       +.1],
+  [TerrainType.DeepSea,     0],
+  [TerrainType.Reef,      +.2],
+  [TerrainType.Bridge,      0],
 ]);
 
 const TerrainTypeToName = new Map(Object.keys(TerrainType).map(name => [TerrainType[name], name]));
@@ -153,6 +168,13 @@ function getTerrainMoveCost(unit, terrainType) {
     default:
       return Infinity;
   }
+}
+
+function calculateDamage(attacker, defenderTerrain) {
+  let damage = attacker.health / 2;
+  damage -= damage * (TerrainTypeToDefenseModifier.get(defenderTerrain) || 0);
+  damage += damage * (Math.random() - .5);
+  return Math.round(damage);
 }
 
 customElements.define(
@@ -216,14 +238,18 @@ customElements.define(
 
         if (loc && loc.entity) {
           // TODO range
-          // TODO cover
-          // TODO random
-          // TODO update displays
+          const terrain = this.querySelector('level-terrain');
           const defender = loc.entity;
+
           const attacker = this.entitySelectedForAttack;
-          defender.takeDamage(attacker.health / 2);
+          const defenderTerrain = terrain.getTerrainType(loc.x, loc.y);
+          defender.takeDamage(calculateDamage(attacker, defenderTerrain));
+
           if (defender.health) {
-            attacker.takeDamage(defender.health / 2);
+            const attackerTerrain = terrain.getTerrainType(
+              attacker.parentElement.transform.x, attacker.parentElement.transform.y
+            );
+            attacker.takeDamage(calculateDamage(defender, attackerTerrain));
           }
         }
 
@@ -444,10 +470,25 @@ customElements.define(
           :host([player="2"]) {
             background-color: blue;
           }
+
+          span {
+            position: absolute;
+            top: -5px;
+            right: -5px;
+            font-size: 12px;
+            background: white;
+            width: 1em;
+            text-align: center;
+            border-radius: 25%;
+            border: 1px solid #ccc;
+          }
         </style>
       `;
 
       this.health = 100;
+      this.healthBadge = document.createElement('span');
+      this.healthBadge.style.display = 'none';
+      this.shadowRoot.appendChild(this.healthBadge);
     }
 
     takeDamage(damage) {
@@ -459,6 +500,12 @@ customElements.define(
 
       if (this.health <= 0) {
         this.parentElement.destroy();
+      } else {
+        const shortHealth = Math.max(1, Math.round(this.health / 10));
+        if (shortHealth < 10) {
+          this.healthBadge.innerText = shortHealth;
+          this.healthBadge.style.display = 'block';
+        }
       }
     }
 
@@ -545,7 +592,7 @@ customElements.define(
     }
 
     updateUnit(event) {
-      if (event.target.health) {
+      if (event.target.health > 0) {
         this.setUnit(event.target);
       } else {
         this.setUnit();

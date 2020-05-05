@@ -233,6 +233,21 @@ customElements.define(
           const terrainType = terrain.getTerrainType(x, y);
           display.setTerrain(terrainType);
         }
+
+        if (this.entitySelectedForMovement) {
+          // TODO terrible
+          const arrow = this.querySelector('unit-move-arrow');
+          const area = this.querySelector('unit-move-area');
+
+          if (!arrow || !area) return;
+
+          const loc = area.getReachableLocation(x, y);
+          if (loc) {
+            arrow.drawMoveArrow(loc);
+          } else {
+            arrow.clear();
+          }
+        }
       });
 
       window.addEventListener('keydown', event => {
@@ -275,11 +290,7 @@ customElements.define(
         let loc = moveArea.getReachableLocation(x, y);
 
         if (loc) {
-          const moves = [];
-          while (loc.from) {
-            moves.push(loc);
-            loc = loc.from;
-          }
+          const moves = movesFromLocation(loc);
           const unit = this.entitySelectedForMovement;
           const moveTransform = this.entitySelectedForMovement.parentElement.transform;
           if (!moves.length || !moveTransform) {
@@ -300,6 +311,7 @@ customElements.define(
           }, 100);
         }
 
+        this.querySelector('unit-move-arrow').clear();
         moveArea.clearMoveArea();
         this.entitySelectedForMovement = null;
       } else {
@@ -329,6 +341,15 @@ customElements.define(
   }
 );
 
+function movesFromLocation(loc) {
+  const moves = [];
+  while (loc.from) {
+    moves.push(loc);
+    loc = loc.from;
+  }
+  return moves;
+}
+
 function parseLevelString(levelString) {
   return levelString.trim().split('\n').map(rowString => rowString.trim().split('').map(char =>
     CharToTerrainType[char] || TerrainType.Plain
@@ -337,18 +358,19 @@ function parseLevelString(levelString) {
 
 const TILE_SIZE = 50;
 
+class CanvasElement extends HTMLElement {
+  constructor() {
+    super();
+    this.attachShadow({ mode: 'open' });
+    this.canvas = document.createElement('canvas');
+    this.ctx = this.canvas.getContext('2d');
+    this.shadowRoot.appendChild(this.canvas);
+  }
+}
+
 customElements.define(
   'level-terrain',
-  class LevelTerrain extends HTMLElement {
-    constructor() {
-      super();
-      this.attachShadow({ mode: 'open' });
-      
-      this.canvas = document.createElement('canvas');
-      this.ctx = this.canvas.getContext('2d');
-      this.shadowRoot.appendChild(this.canvas);
-    }
-
+  class LevelTerrain extends CanvasElement {
     static get observedAttributes() {
       return ['level-string'];
     }
@@ -633,17 +655,46 @@ customElements.define(
 );
 
 customElements.define(
-  'unit-move-area',
-  class UnitMoveArea extends HTMLElement {
-    constructor() {
-      super();
-      this.attachShadow({ mode: 'open' });
+  'unit-move-arrow',
+  class UnitMoveArrow extends CanvasElement {
+    drawMoveArrow(loc) {
+      this.clear();
+
+      // todo terrible
+      const area = document.querySelector('unit-move-area');
+      // TODO get unscaled area
+      this.canvas.width = area.canvas.width;
+      this.canvas.height = area.canvas.height;
+
+      const moves = movesFromLocation(loc);
       
-      this.canvas = document.createElement('canvas');
-      this.ctx = this.canvas.getContext('2d');
-      this.shadowRoot.appendChild(this.canvas);
+      if (!moves.length) return;
+
+      this.ctx.strokeStyle = '#fff';
+      this.ctx.lineWidth = 8;
+      this.ctx.lineCap = 'round';
+
+      for (let move of moves) {
+        if (move.from) {
+          this.ctx.beginPath();
+          this.ctx.moveTo(move.from.x * TILE_SIZE + (TILE_SIZE / 2), move.from.y * TILE_SIZE + (TILE_SIZE / 2));
+          this.ctx.lineTo(move.x * TILE_SIZE + (TILE_SIZE / 2), move.y * TILE_SIZE + (TILE_SIZE / 2));
+          this.ctx.stroke();
+          this.ctx.closePath();
+        }
+      }
+
     }
 
+    clear() {
+      this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+    }
+  }
+);
+
+customElements.define(
+  'unit-move-area',
+  class UnitMoveArea extends CanvasElement {
     getReachableLocation(x, y) {
       if (!this.reachable) return false;
       

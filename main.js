@@ -1,3 +1,11 @@
+function loadAsset(src) {
+  return new Promise(resolve => {
+    const img = new Image;
+    img.onload = () => resolve(img);
+    img.src = src;
+  });
+}
+
 customElements.define(
   'game-object',
   class GameObject extends HTMLElement {
@@ -121,7 +129,7 @@ const CharToTerrainType = {
 };
 
 const TerrainTypeToColor = new Map([
-  [TerrainType.Plain,     'rgb(135, 245, 66)'],
+  [TerrainType.Plain,     'rgb(126, 211, 33)'],
   [TerrainType.Road,      'rgb(230, 227, 161)'],
   [TerrainType.Floor,     'rgb(191, 198, 201)'],
   [TerrainType.Forest,    'rgb(30, 125, 51)'],
@@ -149,6 +157,13 @@ const TerrainTypeToDefenseModifier = new Map([
   [TerrainType.Reef,      +.2],
   [TerrainType.Bridge,      0],
 ]);
+
+const TerrainTypeToImageAsset = new Map([
+  [TerrainType.Forest,    loadAsset('forest.png')],
+  [TerrainType.Mountain,  loadAsset('mountain.png')],
+]);
+
+const assetLoader = Promise.all(TerrainTypeToImageAsset.values());
 
 const TerrainTypeToName = new Map(Object.keys(TerrainType).map(name => [TerrainType[name], name]));
 
@@ -348,23 +363,39 @@ customElements.define(
       }
     }
 
-    updateTerrain(parsedLevel) {
+    async updateTerrain(parsedLevel) {
       this.parsedLevel = parsedLevel;
+
+      await assetLoader;
 
       const width = parsedLevel[0].length;
       const height = parsedLevel.length;
 
       this.width = width;
       this.height = height;
-      this.canvas.width = width * TILE_SIZE;
-      this.canvas.height = height * TILE_SIZE;
+      const SCALE = TILE_SIZE * 2;
+      this.canvas.width = width * SCALE;
+      this.canvas.height = height * SCALE;
+      this.canvas.style.width = width * TILE_SIZE + 'px';
+      this.canvas.style.height = height * TILE_SIZE + 'px';
 
       for (let y = 0; y < height; y++)
       for (let x = 0; x < width; x++) {
         const terrain = parsedLevel[y][x];
+        const img = await TerrainTypeToImageAsset.get(terrain);
         const color = TerrainTypeToColor.get(terrain);
-        this.ctx.fillStyle = color;
-        this.ctx.fillRect(x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE);
+
+        if (img) {
+          const imgWidth = img.width;
+          const imgHeight = img.height;
+          const imgOverlap = imgHeight - imgWidth;
+          const ratio = SCALE / imgWidth;
+          const yOffset = imgOverlap * ratio;
+          this.ctx.drawImage(img, x * SCALE, y * SCALE - yOffset, SCALE, SCALE + yOffset);
+        } else {
+          this.ctx.fillStyle = color;
+          this.ctx.fillRect(x * SCALE, y * SCALE, SCALE, SCALE);
+        }
       }
     }
 
@@ -438,7 +469,7 @@ customElements.define(
       }
     }
   }
-)
+);
 
 customElements.define(
   'unit-entity',
